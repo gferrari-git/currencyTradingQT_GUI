@@ -146,8 +146,17 @@ class MenuCuentasWindow(Ui_CountsWindow,QMainWindow):
         self.FillAccounts()
 
     def Operate(self):
+        actionDict={
+            1:lambda:self.statusBar.showMessage('Operacion Exitosa!',2000),
+            -1:lambda:self.statusBar.showMessage('La cuenta origen y destino son la misma!',2000),
+            0:lambda:self.statusBar.showMessage('Cancelado',2000),
+            -3:lambda:self.statusBar.showMessage('Seleccione Debito o Compra',2000),
+            -2:lambda:self.statusBar.showMessage('No hay fondos suficientes',2000),
+        }
         self.dialog=TradeDialog(self.admin)
-        self.dialog.exec_()
+        result=self.dialog.exec_()
+        actionDict[result]()
+        self.FillAccounts()
 class CrearCuentaDialog(Ui_CrearCuentaDialog,QDialog):
     def __init__(self,admin,*args,**kwargs):
         super().__init__(*args,**kwargs)
@@ -174,7 +183,7 @@ class CrearCuentaDialog(Ui_CrearCuentaDialog,QDialog):
             False:alreadyExist,
             None:noCurrency
         }
-        MyAccountBuilder=AccountBuilder(self.comboBox.currentText())
+        MyAccountBuilder=AccountBuilder(self.comboBox.currentText().split('=')[0])
         res=MyAccountBuilder.prepare(self.admin)
         actionDict[res](self)
 
@@ -208,8 +217,36 @@ class TradeDialog(Ui_TradeDialog,QDialog):
         self.setupUi(self)    
         self.admin=admin
         self.btnAccept.clicked.connect(lambda x:self.enter())
+        result=self.admin.CheckAccount()
+        for count in result:       
+            self.orgCrrncy.addItem(f'{count["currency"]}')
+            self.dstCrrncy.addItem(f'{count["currency"]}')
+        self.btnComprar.setChecked(True)
+        self.btnCancel.clicked.connect(lambda x:self.done(0))
     def enter(self):
-        pass
+        def success(self):
+            self.MyBuyer.validate(self.admin,self.res['bal_org'],self.res['bal_dst'])
+            self.done(1)
+        def noMoney(self):
+            self.done(-2)
+        actionDict={
+            'OK':success,
+            'NOT OK':noMoney
+        }
+        org = self.orgCrrncy.currentText()
+        dst = self.dstCrrncy.currentText()
+        if org==dst:
+            self.done(-1)
+        cnt=Decimal(self.buyerEdit.text())
+        if self.btnComprar.isChecked():
+            op='BUY'
+        elif self.btnDebitar.isChecked():
+            op='DEBIT'
+        else:
+            self.done(-3)
+        self.MyBuyer=Buyer(operation=op,org=org,dst=dst,cnt=cnt)
+        self.res=self.MyBuyer.prepare(self.admin)
+        actionDict[self.res['status']](self)
 
 class App(object):
 

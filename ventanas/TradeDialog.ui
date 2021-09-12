@@ -92,10 +92,10 @@
        <number>50</number>
       </property>
       <item>
-       <widget class="QComboBox" name="comboBox"/>
+       <widget class="QComboBox" name="orgCrrncy"/>
       </item>
       <item>
-       <widget class="QComboBox" name="comboBox_2"/>
+       <widget class="QComboBox" name="dstCrrncy"/>
       </item>
      </layout>
     </item>
@@ -112,7 +112,7 @@
    </property>
    <layout class="QVBoxLayout" name="verticalLayout_2">
     <item>
-     <widget class="QLineEdit" name="lineEdit">
+     <widget class="QLineEdit" name="buyerEdit">
       <property name="placeholderText">
        <string>Cantidad</string>
       </property>

@@ -139,6 +139,7 @@ class MenuCuentasWindow(Ui_CountsWindow,QMainWindow):
             0:lambda:self.statusBar.showMessage('Cancelado',2000),
             -3:lambda:self.statusBar.showMessage('ERROR-3',2000),
             -2:lambda:self.statusBar.showMessage('ERROR-2',2000),
+            -4:lambda:self.statusBar.showMessage('El monto no es un numero!',2000)
         }
         self.Dialog=DepositDialog(self.admin)
         result=self.Dialog.exec_()
@@ -152,11 +153,13 @@ class MenuCuentasWindow(Ui_CountsWindow,QMainWindow):
             0:lambda:self.statusBar.showMessage('Cancelado',2000),
             -3:lambda:self.statusBar.showMessage('Seleccione Debito o Compra',2000),
             -2:lambda:self.statusBar.showMessage('No hay fondos suficientes',2000),
+            -4:lambda:self.statusBar.showMessage('El monto no es un numero!',2000)
         }
         self.dialog=TradeDialog(self.admin)
         result=self.dialog.exec_()
         actionDict[result]()
         self.FillAccounts()
+
 class CrearCuentaDialog(Ui_CrearCuentaDialog,QDialog):
     def __init__(self,admin,*args,**kwargs):
         super().__init__(*args,**kwargs)
@@ -202,14 +205,17 @@ class DepositDialog(Ui_DepositDialog,QDialog):
             'FalseFalse':-2
         }
         rv=""
-        cnt=Decimal(self.depositEdit.text())
-        MyDepositor=Depositor(cnt)
-        MyCollector=Collector()
-        MyDepositor.prepare(self.admin)
-        #preguntar si o no
-        rv+=str(MyDepositor.validate(self.admin))
-        rv+=str(MyCollector.validate()) #aqui realizaria el cobro
-        self.done(resultDict[rv])
+        try:
+            cnt=Decimal(self.depositEdit.text())
+            MyDepositor=Depositor(cnt)
+            MyCollector=Collector()
+            MyDepositor.prepare(self.admin)
+            #preguntar si o no
+            rv+=str(MyDepositor.validate(self.admin))
+            rv+=str(MyCollector.validate()) #aqui realizaria el cobro
+            self.done(resultDict[rv])
+        except:
+            self.done(-4)
 
 class TradeDialog(Ui_TradeDialog,QDialog):
     def __init__(self,admin,*args,**kwargs):
@@ -235,21 +241,23 @@ class TradeDialog(Ui_TradeDialog,QDialog):
         }
         org = self.orgCrrncy.currentText()
         dst = self.dstCrrncy.currentText()
-        print(org,dst)
         if org==dst:
             self.done(-1)
         else:
-            cnt=Decimal(self.buyerEdit.text())
-            if self.btnComprar.isChecked():
-                op='BUY'
-            elif self.btnDebitar.isChecked():
-                op='DEBIT'
-            else:
-                self.done(-3)
-            self.MyBuyer=Buyer(operation=op,org=org,dst=dst,cnt=cnt)
-            self.res=self.MyBuyer.prepare(self.admin)
-            actionDict[self.res['status']](self)
-
+            try:
+                cnt=Decimal(self.buyerEdit.text())
+                if self.btnComprar.isChecked():
+                    op='BUY'
+                elif self.btnDebitar.isChecked():
+                    op='DEBIT'
+                else:
+                    self.done(-3)
+                self.MyBuyer=Buyer(operation=op,org=org,dst=dst,cnt=cnt)
+                self.res=self.MyBuyer.prepare(self.admin)
+                actionDict[self.res['status']](self)
+            except:
+                self.done(-4)
+            
 class App(object):
 
     """Clase Base de la Aplicacion, usada para iniciarla"""
@@ -264,244 +272,3 @@ class App(object):
         myLogger=Logger_Window(admin)
         myLogger.show()
         app.exec_()
-
-
-
-    """Clase Encargada de mostrar opciones en 
-    la pantalla y mostrar resultados"""
-    
-    def __init__(self,admin):
-        self.admin=admin
-
-    def ShowLogin(self):
-
-        """Metodo que toma los datos del login (user y pwd) e 
-        informa la validacion del mismo"""
-        
-        name=input("User:")
-        pwd = getpass.getpass('Password:')
-        result = self.admin.CheckValidate(name, pwd)
-        if result==True:
-            print ('Acceso correcto')
-        elif result == False:
-            print ('Password y/o usuario Incorrecto')
-        else:
-            print ('Password y/o usuario Incorrecto')
-            
-    def ShowMenu(self):
-    
-        """Metodo que muestra el menu de Bienvenida y opciones iniciales (Login
-        y crear usuario). Devuelve False si se eligio Login para dar 
-        paso a ShowUserMenu y True si se eligio cualquier otra opcion, para forzar
-        otro ciclo de main"""
-    
-        print('Bienvenido a la app de compra y venta de moneda')
-        print('Ingrese la Opcion que desea Realizar:')
-        print('1-Login','2-Crear Usuario',sep='\n')
-        try:
-            opt=int(input())
-            if opt==1:
-                self.ShowLogin()
-                self.ShowAccounts()
-                return False
-            elif opt==2:
-                myOpIfce=OpInterface(self.admin)
-                myOpIfce.BuildUser() 
-                return True
-            else:
-                print('Opcion Incorrecta')
-                return True
-        except:
-            print('Opcion Incorrecta')
-            return True
-
-    def ShowUserMenu(self):
-    
-        """Metodo que muestra el menu de Usuario y opciones especificas
-        (Comprar,depositar, crear cuenta).Devuelve True si realizo una 
-        operacion con exito y False si se ingreso la opcion Salir"""
-
-        myOpIfce=OpInterface(self.admin)
-        print('Ingrese la Opcion que desea Realizar, cualquier otra para salir')
-        print('1-Comprar','2-Depositar','3-Crear Cuenta',sep='\n')
-        try:
-            opt=int(input())
-            if opt==1:
-                myOpIfce.Buy() 
-                self.ShowAccounts()
-                return True
-            elif opt==2:
-                myOpIfce.Deposit() 
-                self.ShowAccounts()
-                return True   
-            elif opt==3:
-                myOpIfce.BuildAccount() 
-                self.ShowAccounts()
-                return True
-            else:
-                print('Adios')
-                return False
-        except:
-            print('Adios')
-            return False
-            
-    def ShowAccounts(self):
-    
-        """Metodo que muestra las cuentas y saldos del usuario loggeado"""
-        
-        result = self.admin.CheckAccount()
-        if result is None:
-            pass#usuario incorrecto
-        elif result == False:
-            print ('No hay cuentas')
-        else:
-            print ('Cuentas:')
-            for count in result:
-                print('Moneda-> '+count['currency']+\
-                ' Saldo-> {:.2f}'.format(count['amount']))
-                
-class OpInterface(object):
-
-    """Clase que opera como interfaz de Usuario para las 
-operaciones compra, deposito, creacion de usuarios y cuentas
-Para usar sus metodos el usuario debe estar correctamente loggeado
-excepto por BuildUser"""
-    
-    def __init__(self,admin):
-        self.admin=admin
-        
-    def Buy(self):
-    
-        """Metodo que funciona como interfaz de usuario para la compra o
-        intrecambio de moneda. Toma los datos moneda origen, destino, 
-        cantidad a comprar o a debitar e informa sobre el resultado de la
-        operacion"""
-        
-        org=input('Moneda Origen:').upper()
-        dst=input('Moneda Destino:').upper()
-        op=input("1-Cantidad a comprar\n2-Cantidad a debitar:\n")
-        if op=='1':
-            op='BUY'
-        elif op=='2':
-            op='DEBIT'
-        else:
-            print('Opcion Incorrecta')
-            return
-        cnt=Decimal(input('Cantidad:'))
-        MyBuyer=Buyer(operation=op,org=org,dst=dst,cnt=cnt)
-        res=MyBuyer.prepare(self.admin)
-        if res != False:
-        
-            if res['status']=='OK':
-            
-                print('Saldo Suficiente, Su balance sera {:.2f} {} y {:.2f} {}'
-                    .format(res['bal_org'],org,res['bal_dst'],dst))
-                    
-                ack=input('Desea Comfirmar?(S/N):\n')
-                if ack.lower()=='s':
-                    if (MyBuyer.validate(self.admin,
-                        res['bal_org'],res['bal_dst'])) == True:
-                        
-                        print('Compra Exitosa!')
-                        
-                    else:
-                        print('Error')
-                else:
-                    print('Cancelado')
-                    
-            elif res['status']=='NOT OK': 
-            
-                print('Saldo Insuficiente, Su balance sera {:.2f} {} y {:.2f} {}'
-                    .format(res['bal_org'],org,res['bal_dst'],dst))
-                    
-                return
-                
-            else:
-                return
-        else:
-            print('No existe la cuenta origen y/o destino, creela primero')
-            return
-           
-    def Deposit(self):
-            
-        """Metodo que funciona como interfaz de usuario para el deposito de ARS.
-        Toma los datos de cantidad de ARS y llama al metodo de cobro e informa 
-        el resultado de la operacion"""
-        
-        cnt=Decimal(input('Ingrese la Cantidad de ARS a depositar:\n'))
-        MyDepositor=Depositor(cnt)
-        MyCollector=Collector()
-        res=MyDepositor.prepare(self.admin)
-        
-        print('Luego del deposito su Saldo sera: {:.2f} ARS'.format(res))
-        ack=input('Desea Comfirmar?(S/N):\n')
-        
-        if ack.lower()=='s':
-            rv=MyDepositor.validate(self.admin)
-            rv2=MyCollector.validate() #aqui realizaria el cobro
-            if (rv and rv2) == True:
-                print('Deposito Exitoso!')
-            else:
-                print('Error')
-        else:
-            print('Cancelado')
-
-    def BuildAccount(self):
-    
-        """Metodo que funciona como interfaz de usuario para la creacion de cuenta.
-        Toma los datos de la moneda de cuenta e informa el resultado de la operacion"""
-
-        crncy=input('Ingrese la Moneda de la Cuenta a Crear:\n')
-        MyAccountBuilder=AccountBuilder(crncy)
-        res=MyAccountBuilder.prepare(self.admin)
-        if res==False:
-            print('La cuenta ya existe')
-            return
-        elif res is None:
-            print('La Moneda no existe')
-            return
-        else:
-            ack=input(
-            'Desea Crear una nueva Cuenta en {}?(S/N):\n'.format(crncy.upper()))
-            if ack.lower()=='s':
-                rv=MyAccountBuilder.Build(self.admin)
-                if rv == True:
-                    print('Cuenta Creada con Exito!')
-                else:
-                    print('Error')
-            else:
-                print('Cancelado')
-            
-    def BuildUser(self):
-    
-        """Metodo que funciona como interfaz de usuario para la creacion de Usuario.
-        Toma los datos usuario y password e informa el resultado de la operacion"""
-
-        name=input('Ingrese el nombre Usuario a Crear:\n')
-        pwd=input('Ingrese la clave de Acceso:\n')
-        MyUserBuilder=UserBuilder(name,pwd)
-        rv=MyUserBuilder.validateUser(self.admin)
-        if rv==False:
-            print('El ususario ya Existe')
-            return
-        else:
-            pwd=input('Ingrese Nuevamente la clave de Acceso:\n')
-            rv=MyUserBuilder.validatePwd(pwd)
-            if rv== False:
-                print('Las claves no coinciden')
-                return
-            else:
-                ack=input('Comfirma la creacion de Usuario?(S/N):\n')
-                if ack.lower()=='s':
-                    rv=MyUserBuilder.Build(self.admin)
-                    if rv==False:
-                        print('Error')
-                        return
-                    else:
-                        print('Usuario Creado con exito')
-                        return
-                else:
-                    print('Cancelado')
-                    return
-    
-             

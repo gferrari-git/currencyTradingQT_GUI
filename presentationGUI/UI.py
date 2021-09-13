@@ -235,18 +235,20 @@ class TradeDialog(Ui_TradeDialog,QDialog):
         }
         org = self.orgCrrncy.currentText()
         dst = self.dstCrrncy.currentText()
+        print(org,dst)
         if org==dst:
             self.done(-1)
-        cnt=Decimal(self.buyerEdit.text())
-        if self.btnComprar.isChecked():
-            op='BUY'
-        elif self.btnDebitar.isChecked():
-            op='DEBIT'
         else:
-            self.done(-3)
-        self.MyBuyer=Buyer(operation=op,org=org,dst=dst,cnt=cnt)
-        self.res=self.MyBuyer.prepare(self.admin)
-        actionDict[self.res['status']](self)
+            cnt=Decimal(self.buyerEdit.text())
+            if self.btnComprar.isChecked():
+                op='BUY'
+            elif self.btnDebitar.isChecked():
+                op='DEBIT'
+            else:
+                self.done(-3)
+            self.MyBuyer=Buyer(operation=op,org=org,dst=dst,cnt=cnt)
+            self.res=self.MyBuyer.prepare(self.admin)
+            actionDict[self.res['status']](self)
 
 class App(object):
 

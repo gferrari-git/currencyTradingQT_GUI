@@ -1,6 +1,6 @@
 from business.admin import Admin,Buyer,Depositor,Collector,AccountBuilder,UserBuilder
 from PyQt5.QtWidgets import QMainWindow,QApplication,QDialog
-from PyQt5.QtWidgets import QTableWidgetItem
+from PyQt5.QtWidgets import QTableWidgetItem,QMessageBox
 from PyQt5 import QtCore
 from decimal import Decimal
 import getpass
@@ -39,6 +39,7 @@ class Logger_Window(Ui_Loggeo,QMainWindow):
             False:noPass,
             None:noUser
         }
+
         name=self.editUser.text()
         pwd=self.editPass.text()           
         result = self.admin.CheckValidate(name, pwd)
@@ -49,7 +50,7 @@ class Logger_Window(Ui_Loggeo,QMainWindow):
 
     def create(self):
         siguienteWindow=CreateUserWindow(self.admin)
-        siguienteWindow.exec_()
+        print(siguienteWindow.exec_())
         
 class CreateUserWindow(Ui_CreateUserDialog,QDialog):
     def __init__(self,admin,*args,**kwargs):
@@ -57,18 +58,19 @@ class CreateUserWindow(Ui_CreateUserDialog,QDialog):
         self.setupUi(self)    
         self.admin=admin
         self.btnCrear.clicked.connect(lambda x:self.enter())
+        self.btnCancel.clicked.connect(lambda x:self.done(0))
         
     def enter(self):
         def success(self):
             self.userBuilder.Build(self.admin)
             print('Exito')
-            self.close()
+            self.done(0)
         def AlreadyExist(self):
             print('Ya existe el usuario')
-            self.close()
+            self.done(-1)
         def PassNotMatch(self):
             print('Los pass no coinciden')
-            self.close()
+            self.done(-2)
 
         resultDict={
             'TrueTrue':success,
@@ -106,7 +108,7 @@ class MenuCuentasWindow(Ui_CountsWindow,QMainWindow):
                 self.tablaCuentas.insertRow(row)
                 currency = QTableWidgetItem(str(count['currency']))
                 currency.setFlags( QtCore.Qt.ItemIsEnabled)
-                amount= QTableWidgetItem(str(count['amount']))
+                amount= QTableWidgetItem("{:.2f}".format(count['amount']))
                 amount.setFlags( QtCore.Qt.ItemIsEnabled)
                 self.tablaCuentas.setItem(row,0,currency)
                 self.tablaCuentas.setItem(row,1,amount)
@@ -197,24 +199,31 @@ class DepositDialog(Ui_DepositDialog,QDialog):
         self.admin=admin
         self.btnAccept.clicked.connect(lambda x:self.enter())
         self.btnCancel.clicked.connect(lambda x:self.done(0))
+
     def enter(self):
         resultDict={
             'TrueTrue':1,
             'FalseTrue':-3,
             'TrueFalse':-1,
-            'FalseFalse':-2
+            'FalseFalse':-2,
+            0:0
         }
-        rv=""
         try:
+            rv=""
             cnt=Decimal(self.depositEdit.text())
             MyDepositor=Depositor(cnt)
             MyCollector=Collector()
             MyDepositor.prepare(self.admin)
-            #preguntar si o no
-            rv+=str(MyDepositor.validate(self.admin))
-            rv+=str(MyCollector.validate()) #aqui realizaria el cobro
+            rv=DialogShower.showDialog(f'Está Seguro de Depositar {cnt} ARS?',"Está Seguro?")
+            rv=str(rv)
+            if rv=='True':
+                rv=''
+                rv+=str(MyDepositor.validate(self.admin))
+                rv+=str(MyCollector.validate()) #aqui realizaria el cobro
+            else:
+                rv=0
             self.done(resultDict[rv])
-        except:
+        except:    
             self.done(-4)
 
 class TradeDialog(Ui_TradeDialog,QDialog):
@@ -231,8 +240,12 @@ class TradeDialog(Ui_TradeDialog,QDialog):
         self.btnCancel.clicked.connect(lambda x:self.done(0))
     def enter(self):
         def success(self):
-            self.MyBuyer.validate(self.admin,self.res['bal_org'],self.res['bal_dst'])
-            self.done(1)
+            rv=DialogShower.showDialog(f'Está Seguro de Comprar {cnt} {dst}?',"Está Seguro?")
+            if rv==True:
+                self.MyBuyer.validate(self.admin,self.res['bal_org'],self.res['bal_dst'])
+                self.done(1)
+            else:
+                self.done(0)
         def noMoney(self):
             self.done(-2)
         actionDict={
@@ -257,7 +270,19 @@ class TradeDialog(Ui_TradeDialog,QDialog):
                 actionDict[self.res['status']](self)
             except:
                 self.done(-4)
-            
+
+class DialogShower():
+    def showDialog(text,title):
+        msgBox=QMessageBox()
+        msgBox.setIcon(QMessageBox.Question)
+        msgBox.setText(text)
+        msgBox.setWindowTitle(title)
+        msgBox.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+        returnValue = msgBox.exec()
+        if returnValue == QMessageBox.Ok:
+            return True
+        else:
+            return False               
 class App(object):
 
     """Clase Base de la Aplicacion, usada para iniciarla"""

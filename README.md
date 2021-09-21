@@ -1,6 +1,6 @@
-# currencyTradingQT_GUI
-Qt GUI fro currencyTrading
-CurrencyTrade es una App de Python para Compra y Venta de Divisas.
+# currencyTradingQT_GUI:Qt GUI for currencyTrading
+
+CurrencyTrading es una App de Python para Compra y Venta de Divisas.
 
 ## Instalacion
 
